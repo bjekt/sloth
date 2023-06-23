@@ -11,11 +11,15 @@ import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.must.Matchers
 import chameleon.ext.circe._
 import io.circe.generic.auto._
+import java.nio.ByteBuffer
 
 trait EmptyApi
 object EmptyApi extends EmptyApi
 
 case class TwoInts(a:Int, b:Int)
+trait SingleApiPrimaryTypeParam {
+  def oki(a: Int): Future[Int]
+}
 trait SingleApi {
   def foo(a: Int, b: Int): Future[Int] = foo(TwoInts(a,b))
   def foo(ints: TwoInts): Future[Int]
@@ -123,6 +127,19 @@ class SlothSpec extends AsyncFreeSpec with Matchers {
           }
         }
       }
+      object ByteBufferTransport extends RequestTransport[ByteBuffer, Future] {
+        override def apply(request: Request[ByteBuffer]): Future[ByteBuffer] = {
+          println(request)
+          Future.failed(new Exception("err.toString"))
+        }
+      }
+      import chameleon.ext.boopickle.boopickleSerializerDeserializer
+//      implicit val d3:  boopickle.Pickler[TwoInts] = null
+//      implicit val d1:  chameleon.Deserializer[Int, java.nio.ByteBuffer] = null
+//      implicit val d2:  chameleon.Deserializer[TwoInts, java.nio.ByteBuffer] = null
+      import boopickle.Default._
+      val client2 = Client[ByteBuffer, Future](ByteBufferTransport)
+      val api2 = client2.wire[SingleApiPrimaryTypeParam]
 
       val client = Client[PickleType, Future](Transport)
       val api = client.wire[Api[Future]]
